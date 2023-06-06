@@ -1,36 +1,36 @@
 <template>
 	<view class="poker-main" :class='[mainPanelClass]'>
-		<div v-for='(card, idx) of cards' :key='idx' class="card" :style='[cardStyle(card, idx)]'></div>
+		<div v-for='(card, idx) of cards' :key='card.index' class="card" :style='[cardStyle(card, idx)]' @click='cardClicked(card)'></div>
 		<div class="welcome" @click='show.welcome = false; newGame()'></div>
 	</view>
 </template>
 
 <script>
 	
-	const createCards = (random=false) => {
+	const createCards = (part=Math.random()) => {
 		const arr = []
 		
 		arr.push({ // 小王
 			type: 4,
-			num: 0
+			num: 0,
+			part
 		})
 		arr.push({ // 大王
 			type: 4,
-			num: 1
+			num: 1,
+			part
 		})
 		
 		for (let type=0; type<4; type++) {
 			for (let num=0; num<13; num++) {
 				arr.push({
 					type,
-					num
+					num,
+					part
 				})
 			}
 		}
 		
-		if(random) {
-			mess(arr)
-		}
 		return arr;
 	}
 	
@@ -43,6 +43,9 @@
 			arr[j] = tmp
 			i--
 		}
+		for (let idx=0; idx<arr.length; idx++) {
+			arr[idx].index = idx
+		}
 		return arr
 	}
 	
@@ -50,7 +53,7 @@
 	const indexOf = (card, arr) => {
 		for (let idx=0; idx<arr.length; idx++) {
 			const cardInArr = arr[idx]
-			if (cardInArr.type === card.type && cardInArr.num === card.num) {
+			if (cardInArr.type === card.type && cardInArr.num === card.num && cardInArr.part === card.part) {
 				return idx
 			}
 		}
@@ -72,7 +75,10 @@
 				cards: [],   // 剩余可用的牌
 				red: [],      // 我方手里的牌
 				blue: [],     // 电脑手里的牌
-				ground: []    // 场上可以捡的牌
+				ground: [],    // 场上可以捡的牌
+				
+				red2: [], // 记录我方当前选择的牌
+				red2Idx: 0, // 如果添加需要添加到哪里
 			}
 		},
 		onLoad() {
@@ -94,25 +100,36 @@
 		},
 		
 		methods: {
+			cardClicked(card) {
+				if (indexOf(card, this.red) === -1) { // 只能点我方的牌
+					return false
+				}
+				
+				this.red2[this.red2Idx] = card;
+				this.red2Idx++;
+				this.red2Idx = this.red2Idx % 2
+			},
 			newGame() {
-				this.cards = mess([...createCards(true), ...createCards(true)])
-				this.red = []
-				this.blue = []
-				this.ground = []
-				this.cardIndex = 0
+				const that = this
+				that.cards = mess([...createCards(1), ...createCards(2)])
+				that.red = []
+				that.blue = []
+				that.ground = []
+				that.cardIndex = 0
+				
 				
 				setTimeout(() => {
 					const fapaile = async () => {
-						for (; this.cardIndex<8; this.cardIndex+=2) {
+						for (let idx=0; idx<8; idx+=2) {
 							await wait(1000)
-							this.red.push(this.cards[this.cardIndex])
+							that.red.push(that.cards[idx])
 							await wait(1000)
-							this.blue.push(this.cards[this.cardIndex + 1])
+							that.blue.push(that.cards[idx + 1])
 						}
-						console.log('aaaaaaaaaaaa', this.cardIndex)
-						for (const end=this.cardIndex+9; this.cardIndex<end; this.cardIndex++) {
+						
+						for (let idx=8; idx<12; idx++) {
 							await wait(1000)
-							this.ground.push(this.cards[this.cardIndex])
+							that.ground.push(that.cards[idx])
 						}
 					}
 					fapaile();
@@ -130,19 +147,21 @@
 				let top = 400
 				let left = 600
 				
+				let leftOffset = 10
+				let cardWidth = 140
 				
 				let found = false
 				const redIdx = indexOf(card, red)
 				if (redIdx>=0) {
-					top = 100
-					left = 100 + redIdx * 50
+					top = 1000
+					left = leftOffset + redIdx * cardWidth
 					found = true
 				}
 				
 				const blueIdx = indexOf(card, blue)
 				if (blueIdx>=0) {
-					top = 1000
-					left = 100 + blueIdx * 50
+					top = 10
+					left = leftOffset + blueIdx * cardWidth
 					found = true
 				}
 				
@@ -153,16 +172,16 @@
 					const rowIdx = Math.floor(groundIdx / columnCount)
 					const colIdx = groundIdx %  columnCount
 					
-					top = 400 + rowIdx * 100
-					left = 100 + colIdx * 100
+					top = 400 + rowIdx * cardWidth
+					left = leftOffset + colIdx * cardWidth
 				}
 				
 				
 				return {
-					'background-position': found ? `${1770 - card.num * 136}rpx ${1028 - card.type * 205}rpx` : '2% 20%',
+					'background-position': found ? `${1770 - card.num * 136}rpx ${1028 - card.type * 205}rpx` : '1960rpx 400rpx',
 					top: `${top}rpx`,
 					left: `${left}rpx`,
-					'z-index': 10000 + idx
+					'z-index': 10001 + idx
 				}
 			}
 		}
@@ -174,6 +193,7 @@
 		height: 100vh;
 		width: 100vw;
 		background: hsl(120, 100%, 30%);
+		z-index: 10000;
 	}
 
 	.card {
@@ -186,6 +206,8 @@
 		border-radius: 4rpx;
 		position: absolute;
 		transition: top 1s, left 1s;
+		font-size: 80rpx;
+		color: red;
 	}
 	
 	.welcome {

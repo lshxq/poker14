@@ -176,28 +176,28 @@ var _toConsumableArray2 = _interopRequireDefault(__webpack_require__(/*! @babel/
 //
 
 var createCards = function createCards() {
-  var random = arguments.length > 0 && arguments[0] !== undefined ? arguments[0] : false;
+  var part = arguments.length > 0 && arguments[0] !== undefined ? arguments[0] : Math.random();
   var arr = [];
   arr.push({
     // 小王
     type: 4,
-    num: 0
+    num: 0,
+    part: part
   });
   arr.push({
     // 大王
     type: 4,
-    num: 1
+    num: 1,
+    part: part
   });
   for (var type = 0; type < 4; type++) {
     for (var num = 0; num < 13; num++) {
       arr.push({
         type: type,
-        num: num
+        num: num,
+        part: part
       });
     }
-  }
-  if (random) {
-    mess(arr);
   }
   return arr;
 };
@@ -210,12 +210,15 @@ var mess = function mess(arr) {
     arr[j] = tmp;
     i--;
   }
+  for (var idx = 0; idx < arr.length; idx++) {
+    arr[idx].index = idx;
+  }
   return arr;
 };
 var indexOf = function indexOf(card, arr) {
   for (var idx = 0; idx < arr.length; idx++) {
     var cardInArr = arr[idx];
-    if (cardInArr.type === card.type && cardInArr.num === card.num) {
+    if (cardInArr.type === card.type && cardInArr.num === card.num && cardInArr.part === card.part) {
       return idx;
     }
   }
@@ -238,7 +241,12 @@ var _default = {
       // 我方手里的牌
       blue: [],
       // 电脑手里的牌
-      ground: [] // 场上可以捡的牌
+      ground: [],
+      // 场上可以捡的牌
+
+      red2: [],
+      // 记录我方当前选择的牌
+      red2Idx: 0 // 如果添加需要添加到哪里
     };
   },
   onLoad: function onLoad() {},
@@ -253,51 +261,61 @@ var _default = {
     }
   },
   methods: {
+    cardClicked: function cardClicked(card) {
+      if (indexOf(card, this.red) === -1) {
+        // 只能点我方的牌
+        return false;
+      }
+      this.red2[this.red2Idx] = card;
+      this.red2Idx++;
+      this.red2Idx = this.red2Idx % 2;
+    },
     newGame: function newGame() {
-      var _this = this;
-      this.cards = mess([].concat((0, _toConsumableArray2.default)(createCards(true)), (0, _toConsumableArray2.default)(createCards(true))));
-      this.red = [];
-      this.blue = [];
-      this.ground = [];
-      this.cardIndex = 0;
+      var that = this;
+      that.cards = mess([].concat((0, _toConsumableArray2.default)(createCards(1)), (0, _toConsumableArray2.default)(createCards(2))));
+      that.red = [];
+      that.blue = [];
+      that.ground = [];
+      that.cardIndex = 0;
       setTimeout(function () {
         var fapaile = /*#__PURE__*/function () {
           var _ref = (0, _asyncToGenerator2.default)( /*#__PURE__*/_regenerator.default.mark(function _callee() {
-            var end;
+            var idx, _idx;
             return _regenerator.default.wrap(function _callee$(_context) {
               while (1) {
                 switch (_context.prev = _context.next) {
                   case 0:
-                    if (!(_this.cardIndex < 8)) {
-                      _context.next = 10;
+                    idx = 0;
+                  case 1:
+                    if (!(idx < 8)) {
+                      _context.next = 11;
                       break;
                     }
-                    _context.next = 3;
+                    _context.next = 4;
                     return wait(1000);
-                  case 3:
-                    _this.red.push(_this.cards[_this.cardIndex]);
-                    _context.next = 6;
+                  case 4:
+                    that.red.push(that.cards[idx]);
+                    _context.next = 7;
                     return wait(1000);
-                  case 6:
-                    _this.blue.push(_this.cards[_this.cardIndex + 1]);
                   case 7:
-                    _this.cardIndex += 2;
-                    _context.next = 0;
+                    that.blue.push(that.cards[idx + 1]);
+                  case 8:
+                    idx += 2;
+                    _context.next = 1;
                     break;
-                  case 10:
-                    console.log('aaaaaaaaaaaa', _this.cardIndex);
-                    end = _this.cardIndex + 9;
+                  case 11:
+                    _idx = 8;
                   case 12:
-                    if (!(_this.cardIndex < end)) {
+                    if (!(_idx < 12)) {
                       _context.next = 19;
                       break;
                     }
                     _context.next = 15;
                     return wait(1000);
                   case 15:
-                    _this.ground.push(_this.cards[_this.cardIndex]);
+                    that.ground.push(that.cards[_idx]);
                   case 16:
-                    _this.cardIndex++;
+                    _idx++;
                     _context.next = 12;
                     break;
                   case 19:
@@ -320,17 +338,19 @@ var _default = {
         ground = this.ground;
       var top = 400;
       var left = 600;
+      var leftOffset = 10;
+      var cardWidth = 140;
       var found = false;
       var redIdx = indexOf(card, red);
       if (redIdx >= 0) {
-        top = 100;
-        left = 100 + redIdx * 50;
+        top = 1000;
+        left = leftOffset + redIdx * cardWidth;
         found = true;
       }
       var blueIdx = indexOf(card, blue);
       if (blueIdx >= 0) {
-        top = 1000;
-        left = 100 + blueIdx * 50;
+        top = 10;
+        left = leftOffset + blueIdx * cardWidth;
         found = true;
       }
       var groundIdx = indexOf(card, ground);
@@ -339,14 +359,14 @@ var _default = {
         var columnCount = 4;
         var rowIdx = Math.floor(groundIdx / columnCount);
         var colIdx = groundIdx % columnCount;
-        top = 400 + rowIdx * 100;
-        left = 100 + colIdx * 100;
+        top = 400 + rowIdx * cardWidth;
+        left = leftOffset + colIdx * cardWidth;
       }
       return {
-        'background-position': found ? "".concat(1770 - card.num * 136, "rpx ").concat(1028 - card.type * 205, "rpx") : '2% 20%',
+        'background-position': found ? "".concat(1770 - card.num * 136, "rpx ").concat(1028 - card.type * 205, "rpx") : '1960rpx 400rpx',
         top: "".concat(top, "rpx"),
         left: "".concat(left, "rpx"),
-        'z-index': 10000 + idx
+        'z-index': 10001 + idx
       };
     }
   }
