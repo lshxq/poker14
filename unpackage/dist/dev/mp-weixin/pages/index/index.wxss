@@ -28,4 +28,18 @@
 	top: 0;
 	height: 100vh;
 }
+.control-bar {
+	position: absolute;
+	width: 90%;
+	bottom: 20rpx;
+	display: flex;
+	justify-content: center;
+}
+.control-bar > .button {
+	padding: 20rpx;
+	border: 1rpx solid gray;
+	background: lightgray;
+	border-radius: 20rpx;
+	margin: 10rpx;
+}
 

@@ -1,12 +1,18 @@
 <template>
 	<view class="poker-main" :class='[mainPanelClass]'>
 		<div v-for='(card, idx) of cards' :key='card.index' class="card" :style='[cardStyle(card, idx)]' @click='cardClicked(card)'></div>
+		
+		<div class="control-bar">
+			<div class="button" @click='pickCard'>捡</div>
+			<div class="button">要牌</div>
+		</div>
+		
 		<div class="welcome" @click='show.welcome = false; newGame()'></div>
 	</view>
 </template>
 
 <script>
-	
+	const fapaiWait = 100
 	const createCards = (part=Math.random()) => {
 		const arr = []
 		
@@ -53,9 +59,12 @@
 	const indexOf = (card, arr) => {
 		for (let idx=0; idx<arr.length; idx++) {
 			const cardInArr = arr[idx]
-			if (cardInArr.type === card.type && cardInArr.num === card.num && cardInArr.part === card.part) {
-				return idx
+			if (cardInArr) {
+				if (cardInArr.type === card.type && cardInArr.num === card.num && cardInArr.part === card.part) {
+					return idx
+				}
 			}
+			
 		}
 		return -1
 	}
@@ -74,11 +83,16 @@
 				},
 				cards: [],   // 剩余可用的牌
 				red: [],      // 我方手里的牌
-				blue: [],     // 电脑手里的牌
+				blue: [],     // 电脑手里的牌\
+				bluePicked: [], 
 				ground: [],    // 场上可以捡的牌
+				picked: false, // 在场上捡的那个牌
 				
 				red2: [], // 记录我方当前选择的牌
 				red2Idx: 0, // 如果添加需要添加到哪里
+				redPicked: [],
+				
+				redTurn: false,  // 我方可以操作
 			}
 		},
 		onLoad() {
@@ -96,18 +110,109 @@
 					arr.push('show-welcome')
 				}
 				return arr
+			},
+			pickedSum() {
+				const sum = this.red2.reduce((acc, cc) => {
+					return acc + cc.num + 1
+				}, 0)
+				return sum
+			}
+		},
+		
+		watch: {
+			pickedSum(value) {
+				if (this.picked) {
+					if (value + this.getCardValue(this.picked) !== 14) {
+						this.picked = false
+					}
+				}
 			}
 		},
 		
 		methods: {
+			pickCard() {
+				const {
+					picked,
+					red2
+				} = this
+				if (picked) {
+					this.redPicked.push(picked)
+					for (const card of red2) {
+						if(card) {
+							this.redPicked.push(card)
+						}
+					}
+					const newRed = []
+					for(const cardInRed of this.red) {
+						const found = this.red2.find(cc => {
+							return cc && cc.index === cardInRed.index
+						})
+						if (!found) {
+							newRed.push(cardInRed)
+						}
+					}
+					this.red = newRed;
+					
+					const newGround = []
+					for (const cardInGround of this.ground) {
+						if(cardInGround.index !== picked.index) {
+							newGround.push(cardInGround)
+						}
+					}
+					this.ground = newGround
+					
+					this.picked = false
+					this.red2 = []
+					
+				}
+			},
+			
+			getCardValue(card) {
+				let num = card.num + 1
+				if (card.type === 4) {
+					num = 5
+				}
+				return num
+			},
+			
 			cardClicked(card) {
-				if (indexOf(card, this.red) === -1) { // 只能点我方的牌
+				const that = this
+				if (!that.redTurn) { // 用户当前不能操作
+					return false
+				}
+				const groundIdx = indexOf(card, this.ground)
+				if (!(indexOf(card, that.red) >=0 || groundIdx >= 0)) { // 只能点我方的牌, 和场上的牌
 					return false
 				}
 				
-				this.red2[this.red2Idx] = card;
-				this.red2Idx++;
-				this.red2Idx = this.red2Idx % 2
+				if (groundIdx >= 0) {
+					if (that.getCardValue(card) + this.pickedSum  === 14) {
+						that.picked = card
+					}
+				} else {
+					const redIdx = indexOf(card, that.red2)
+					if(redIdx >= 0) { // 已经存在
+						const arr = []
+						for (let idx=0; idx<that.red2.length; idx++) {
+							
+							if (idx != redIdx && that.red2[idx]) {
+								arr.push(that.red2[idx])
+							}
+						}
+						that.red2 = arr
+						that.red2Idx = 1
+					} else {
+						const arr = JSON.parse(JSON.stringify(that.red2))
+						arr[that.red2Idx] = card
+						that.red2 = arr
+						that.red2Idx++;
+						that.red2Idx = that.red2Idx % 2
+					}
+				}
+				
+				
+				
+				
 			},
 			newGame() {
 				const that = this
@@ -120,29 +225,32 @@
 				
 				setTimeout(() => {
 					const fapaile = async () => {
+						
 						for (let idx=0; idx<8; idx+=2) {
-							await wait(1000)
+							await wait(fapaiWait)
 							that.red.push(that.cards[idx])
-							await wait(1000)
+							await wait(fapaiWait)
 							that.blue.push(that.cards[idx + 1])
 						}
 						
 						for (let idx=8; idx<12; idx++) {
-							await wait(1000)
+							await wait(fapaiWait)
 							that.ground.push(that.cards[idx])
 						}
+						that.redTurn = true
 					}
 					fapaile();
+					
 					
 				}, 100)
 			},
 			cardStyle(card, idx) {
-				
+				const that = this
 				const {
 					red,
 					blue,
 					ground
-				} = this
+				} = that
 				
 				let top = 400
 				let left = 600
@@ -156,6 +264,9 @@
 					top = 1000
 					left = leftOffset + redIdx * cardWidth
 					found = true
+					if (indexOf(card, that.red2) >= 0) {
+						top = 950
+					}
 				}
 				
 				const blueIdx = indexOf(card, blue)
@@ -166,6 +277,7 @@
 				}
 				
 				const groundIdx = indexOf(card, ground)
+				let cardInGround = false
 				if (groundIdx >= 0) {
 					found = true
 					const columnCount = 4
@@ -174,15 +286,42 @@
 					
 					top = 400 + rowIdx * cardWidth
 					left = leftOffset + colIdx * cardWidth
+					if(that.picked) {
+						if (that.picked.index === card.index) {
+							top -= 50
+						}
+					}
+					cardInGround = true
 				}
 				
 				
-				return {
+				const style = {
 					'background-position': found ? `${1770 - card.num * 136}rpx ${1028 - card.type * 205}rpx` : '1960rpx 400rpx',
 					top: `${top}rpx`,
 					left: `${left}rpx`,
 					'z-index': 10001 + idx
 				}
+				
+				if (cardInGround) {
+					const {
+						red2
+					} = that
+					if (red2.length > 0) {
+						if (that.getCardValue(card) + that.pickedSum  === 14) {
+							
+						} else {
+							style.filter = 'brightness(.5)'
+						}
+					}
+					
+					if(that.picked) {
+						if (that.picked.index === card.index) {
+							style.transform = 'scale(1.1)'
+						}
+					}
+				}
+				
+				return style
 			}
 		}
 	}
@@ -220,5 +359,21 @@
 	.show-welcome > .welcome{
 		top: 0;
 		height: 100vh;
+	}
+	
+	.control-bar {
+		position: absolute;
+		width: 90%;
+		bottom: 20rpx;
+		display: flex;
+		justify-content: center;
+	}
+	
+	.control-bar > .button {
+		padding: 20rpx;
+		border: 1rpx solid gray;
+		background: lightgray;
+		border-radius: 20rpx;
+		margin: 10rpx;
 	}
 </style>

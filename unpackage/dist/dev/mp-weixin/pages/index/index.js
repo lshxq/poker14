@@ -167,6 +167,15 @@ exports.default = void 0;
 var _regenerator = _interopRequireDefault(__webpack_require__(/*! @babel/runtime/regenerator */ 40));
 var _asyncToGenerator2 = _interopRequireDefault(__webpack_require__(/*! @babel/runtime/helpers/asyncToGenerator */ 42));
 var _toConsumableArray2 = _interopRequireDefault(__webpack_require__(/*! @babel/runtime/helpers/toConsumableArray */ 18));
+function _createForOfIteratorHelper(o, allowArrayLike) { var it = typeof Symbol !== "undefined" && o[Symbol.iterator] || o["@@iterator"]; if (!it) { if (Array.isArray(o) || (it = _unsupportedIterableToArray(o)) || allowArrayLike && o && typeof o.length === "number") { if (it) o = it; var i = 0; var F = function F() {}; return { s: F, n: function n() { if (i >= o.length) return { done: true }; return { done: false, value: o[i++] }; }, e: function e(_e) { throw _e; }, f: F }; } throw new TypeError("Invalid attempt to iterate non-iterable instance.\nIn order to be iterable, non-array objects must have a [Symbol.iterator]() method."); } var normalCompletion = true, didErr = false, err; return { s: function s() { it = it.call(o); }, n: function n() { var step = it.next(); normalCompletion = step.done; return step; }, e: function e(_e2) { didErr = true; err = _e2; }, f: function f() { try { if (!normalCompletion && it.return != null) it.return(); } finally { if (didErr) throw err; } } }; }
+function _unsupportedIterableToArray(o, minLen) { if (!o) return; if (typeof o === "string") return _arrayLikeToArray(o, minLen); var n = Object.prototype.toString.call(o).slice(8, -1); if (n === "Object" && o.constructor) n = o.constructor.name; if (n === "Map" || n === "Set") return Array.from(o); if (n === "Arguments" || /^(?:Ui|I)nt(?:8|16|32)(?:Clamped)?Array$/.test(n)) return _arrayLikeToArray(o, minLen); }
+function _arrayLikeToArray(arr, len) { if (len == null || len > arr.length) len = arr.length; for (var i = 0, arr2 = new Array(len); i < len; i++) { arr2[i] = arr[i]; } return arr2; }
+//
+//
+//
+//
+//
+//
 //
 //
 //
@@ -175,6 +184,7 @@ var _toConsumableArray2 = _interopRequireDefault(__webpack_require__(/*! @babel/
 //
 //
 
+var fapaiWait = 100;
 var createCards = function createCards() {
   var part = arguments.length > 0 && arguments[0] !== undefined ? arguments[0] : Math.random();
   var arr = [];
@@ -218,8 +228,10 @@ var mess = function mess(arr) {
 var indexOf = function indexOf(card, arr) {
   for (var idx = 0; idx < arr.length; idx++) {
     var cardInArr = arr[idx];
-    if (cardInArr.type === card.type && cardInArr.num === card.num && cardInArr.part === card.part) {
-      return idx;
+    if (cardInArr) {
+      if (cardInArr.type === card.type && cardInArr.num === card.num && cardInArr.part === card.part) {
+        return idx;
+      }
     }
   }
   return -1;
@@ -240,13 +252,19 @@ var _default = {
       red: [],
       // 我方手里的牌
       blue: [],
-      // 电脑手里的牌
+      // 电脑手里的牌\
+      bluePicked: [],
       ground: [],
       // 场上可以捡的牌
+      picked: false,
+      // 在场上捡的那个牌
 
       red2: [],
       // 记录我方当前选择的牌
-      red2Idx: 0 // 如果添加需要添加到哪里
+      red2Idx: 0,
+      // 如果添加需要添加到哪里
+      redPicked: [],
+      redTurn: false // 我方可以操作
     };
   },
   onLoad: function onLoad() {},
@@ -258,17 +276,128 @@ var _default = {
         arr.push('show-welcome');
       }
       return arr;
+    },
+    pickedSum: function pickedSum() {
+      var sum = this.red2.reduce(function (acc, cc) {
+        return acc + cc.num + 1;
+      }, 0);
+      return sum;
+    }
+  },
+  watch: {
+    pickedSum: function pickedSum(value) {
+      if (this.picked) {
+        if (value + this.getCardValue(this.picked) !== 14) {
+          this.picked = false;
+        }
+      }
     }
   },
   methods: {
+    pickCard: function pickCard() {
+      var _this = this;
+      var picked = this.picked,
+        red2 = this.red2;
+      if (picked) {
+        this.redPicked.push(picked);
+        var _iterator = _createForOfIteratorHelper(red2),
+          _step;
+        try {
+          for (_iterator.s(); !(_step = _iterator.n()).done;) {
+            var card = _step.value;
+            if (card) {
+              this.redPicked.push(card);
+            }
+          }
+        } catch (err) {
+          _iterator.e(err);
+        } finally {
+          _iterator.f();
+        }
+        var newRed = [];
+        var _iterator2 = _createForOfIteratorHelper(this.red),
+          _step2;
+        try {
+          var _loop = function _loop() {
+            var cardInRed = _step2.value;
+            var found = _this.red2.find(function (cc) {
+              return cc && cc.index === cardInRed.index;
+            });
+            if (!found) {
+              newRed.push(cardInRed);
+            }
+          };
+          for (_iterator2.s(); !(_step2 = _iterator2.n()).done;) {
+            _loop();
+          }
+        } catch (err) {
+          _iterator2.e(err);
+        } finally {
+          _iterator2.f();
+        }
+        this.red = newRed;
+        var newGround = [];
+        var _iterator3 = _createForOfIteratorHelper(this.ground),
+          _step3;
+        try {
+          for (_iterator3.s(); !(_step3 = _iterator3.n()).done;) {
+            var cardInGround = _step3.value;
+            if (cardInGround.index !== picked.index) {
+              newGround.push(cardInGround);
+            }
+          }
+        } catch (err) {
+          _iterator3.e(err);
+        } finally {
+          _iterator3.f();
+        }
+        this.ground = newGround;
+        this.picked = false;
+        this.red2 = [];
+      }
+    },
+    getCardValue: function getCardValue(card) {
+      var num = card.num + 1;
+      if (card.type === 4) {
+        num = 5;
+      }
+      return num;
+    },
     cardClicked: function cardClicked(card) {
-      if (indexOf(card, this.red) === -1) {
-        // 只能点我方的牌
+      var that = this;
+      if (!that.redTurn) {
+        // 用户当前不能操作
         return false;
       }
-      this.red2[this.red2Idx] = card;
-      this.red2Idx++;
-      this.red2Idx = this.red2Idx % 2;
+      var groundIdx = indexOf(card, this.ground);
+      if (!(indexOf(card, that.red) >= 0 || groundIdx >= 0)) {
+        // 只能点我方的牌, 和场上的牌
+        return false;
+      }
+      if (groundIdx >= 0) {
+        if (that.getCardValue(card) + this.pickedSum === 14) {
+          that.picked = card;
+        }
+      } else {
+        var redIdx = indexOf(card, that.red2);
+        if (redIdx >= 0) {
+          // 已经存在
+          var arr = [];
+          for (var idx = 0; idx < that.red2.length; idx++) {
+            if (idx != redIdx && that.red2[idx]) {
+              arr.push(that.red2[idx]);
+            }
+          }
+          that.red2 = arr;
+          that.red2Idx = 1;
+        } else {
+          var _arr = JSON.parse(JSON.stringify(that.red2));
+          _arr[that.red2Idx] = card;
+          that.red2 = _arr;
+          that.red2Idx++;
+          that.red2Idx = that.red2Idx % 2;
+        }
+      }
     },
     newGame: function newGame() {
       var that = this;
@@ -292,11 +421,11 @@ var _default = {
                       break;
                     }
                     _context.next = 4;
-                    return wait(1000);
+                    return wait(fapaiWait);
                   case 4:
                     that.red.push(that.cards[idx]);
                     _context.next = 7;
-                    return wait(1000);
+                    return wait(fapaiWait);
                   case 7:
                     that.blue.push(that.cards[idx + 1]);
                   case 8:
@@ -311,7 +440,7 @@ var _default = {
                       break;
                     }
                     _context.next = 15;
-                    return wait(1000);
+                    return wait(fapaiWait);
                   case 15:
                     that.ground.push(that.cards[_idx]);
                   case 16:
@@ -319,6 +448,8 @@ var _default = {
                     _context.next = 12;
                     break;
                   case 19:
+                    that.redTurn = true;
+                  case 20:
                   case "end":
                     return _context.stop();
                 }
@@ -333,9 +464,10 @@ var _default = {
       }, 100);
     },
     cardStyle: function cardStyle(card, idx) {
-      var red = this.red,
-        blue = this.blue,
-        ground = this.ground;
+      var that = this;
+      var red = that.red,
+        blue = that.blue,
+        ground = that.ground;
       var top = 400;
       var left = 600;
       var leftOffset = 10;
@@ -346,6 +478,9 @@ var _default = {
         top = 1000;
         left = leftOffset + redIdx * cardWidth;
         found = true;
+        if (indexOf(card, that.red2) >= 0) {
+          top = 950;
+        }
       }
       var blueIdx = indexOf(card, blue);
       if (blueIdx >= 0) {
@@ -354,6 +489,7 @@ var _default = {
         found = true;
       }
       var groundIdx = indexOf(card, ground);
+      var cardInGround = false;
       if (groundIdx >= 0) {
         found = true;
         var columnCount = 4;
@@ -361,13 +497,33 @@ var _default = {
         var colIdx = groundIdx % columnCount;
         top = 400 + rowIdx * cardWidth;
         left = leftOffset + colIdx * cardWidth;
+        if (that.picked) {
+          if (that.picked.index === card.index) {
+            top -= 50;
+          }
+        }
+        cardInGround = true;
       }
-      return {
+      var style = {
         'background-position': found ? "".concat(1770 - card.num * 136, "rpx ").concat(1028 - card.type * 205, "rpx") : '1960rpx 400rpx',
         top: "".concat(top, "rpx"),
         left: "".concat(left, "rpx"),
         'z-index': 10001 + idx
       };
+      if (cardInGround) {
+        var red2 = that.red2;
+        if (red2.length > 0) {
+          if (that.getCardValue(card) + that.pickedSum === 14) {} else {
+            style.filter = 'brightness(.5)';
+          }
+        }
+        if (that.picked) {
+          if (that.picked.index === card.index) {
+            style.transform = 'scale(1.1)';
+          }
+        }
+      }
+      return style;
     }
   }
 };
