@@ -2,9 +2,12 @@
 	<view class="poker-main" :class='[mainPanelClass]'>
 		<div v-for='(card, idx) of cards' :key='card.index' class="card" :style='[cardStyle(card, idx)]' @click='cardClicked(card)'></div>
 		
+		<div class="red-picked-value" :class='{show: redPickedValue>0 && redCanPick}'>{{redPickedValue}}</div>
+		<div class="red-value">{{redValue}}</div>
+		
 		<div class="control-bar">
-			<div class="button" @click='pickCard'>捡</div>
-			<div class="button">要牌</div>
+			<div class="button" @click='pickCard' :class='{disabled: !redCanPick || pickedSum2 !== 14}'>捡牌</div>
+			<div class="button" @click='dropCard' :class='{disabled: !redCanDrop || cardCntInRed2 !== 1}'>弃牌</div>
 		</div>
 		
 		<div class="welcome" @click='show.welcome = false; newGame()'></div>
@@ -12,7 +15,15 @@
 </template>
 
 <script>
-	const fapaiWait = 100
+	const typeValueMap = {
+		0: 2,
+		1: 4,
+		2: 3,
+		3: 1,
+		4: 5,
+	}
+	
+	const fapaiWait = 800
 	const createCards = (part=Math.random()) => {
 		const arr = []
 		
@@ -69,10 +80,23 @@
 		return -1
 	}
 	
-	const wait = (num) => {
+	const wait = (num=fapaiWait) => {
 		return new Promise(res => {
 			setTimeout(res, num)
 		})
+	}
+	
+	const takeOut = (arr1, arr2) => {
+		const arr = []
+		for (const e1 of arr1) {
+			const found = arr2.find(e2 => {
+				return e1.index === e2.index
+			})
+			if (!found) {
+				arr.push(e1)
+			}
+		}
+		return arr
 	}
 	
 	export default {
@@ -82,24 +106,62 @@
 					welcome: true
 				},
 				cards: [],   // 剩余可用的牌
-				red: [],      // 我方手里的牌
+				cardIndex: 0, // 当前拿到第几张牌了
+				
 				blue: [],     // 电脑手里的牌\
-				bluePicked: [], 
+				blue2: [],   // 蓝方当前选择
+				bluePicked: [], // 蓝方已经捡起并得分的牌
+				
 				ground: [],    // 场上可以捡的牌
 				picked: false, // 在场上捡的那个牌
 				
+				red: [],      // 我方手里的牌
 				red2: [], // 记录我方当前选择的牌
 				red2Idx: 0, // 如果添加需要添加到哪里
-				redPicked: [],
+				redPicked: [], // 红方已经捡走的14
 				
-				redTurn: false,  // 我方可以操作
+				redCanPick: false,  // 我方可以操作,
+				redCanDrop: false,
 			}
 		},
 		onLoad() {
-			
+			const au = src => {
+				const audio = uni.createInnerAudioContext();
+				audio.src= src
+				audio.autoplay = false
+				return audio
+			}
+			this.audio = [
+				au('/static/_1.m4a'),
+				au('/static/_2.m4a'),
+				au('/static/_3.m4a'),
+				au('/static/_4.m4a'),
+				au('/static/_5.m4a'),
+				au('/static/_5.m4a'),
+				au('/static/_6.m4a'),
+				au('/static/_7.m4a'),
+				au('/static/_8.m4a'),
+				au('/static/_9.m4a'),
+				au('/static/_10.m4a'),
+				au('/static/_11.m4a'),
+				au('/static/_12.m4a'),
+				au('/static/_13.m4a'),
+				au('/static/_14.m4a'),
+				au('/static/_plus.m4a'),
+			]
+			this.du = au('https://img.tukuppt.com/newpreview_music/09/03/80/5c8ae2d24455276952.mp3')
 		},
 		
 		computed: {
+			cardCntInRed2() {
+				let cnt = 0;
+				for (const card of this.red2) {
+					if (card) {
+						cnt++
+					}
+				}
+				return cnt
+			},
 			mainPanelClass() {
 				const {
 					welcome
@@ -111,18 +173,60 @@
 				}
 				return arr
 			},
-			pickedSum() {
+			pickedSum() { 
+				const that = this
 				const sum = this.red2.reduce((acc, cc) => {
-					return acc + cc.num + 1
+					return acc + that.getCardValue((cc))
 				}, 0)
 				return sum
+			},
+			pickedSum2() { // 我们目前点选的牌的分
+				const {
+					pickedSum,
+					picked
+				} = this
+				let num = 0;
+				if (picked) {
+					num = this.getCardValue(picked)
+				}
+				return num + pickedSum
+			},
+			redPickedValue() {
+				const{
+					red2,
+					picked
+				} = this
+				
+				let value = 0
+				for (const cc of red2) {
+					if (cc) {
+						value += typeValueMap[cc.type]
+					}
+				}
+				if (picked) {
+					value += typeValueMap[picked.type]
+				}
+				return value
+			},
+			redValue() {
+				const that = this
+				const {
+					redPicked
+				} = that
+				const acc = redPicked.reduce((acc, card) => {
+					if (card) {
+						return acc + typeValueMap[card.type]
+					}
+					return acc
+				}, 0)
+				return acc
 			}
 		},
 		
 		watch: {
-			pickedSum(value) {
-				if (this.picked) {
-					if (value + this.getCardValue(this.picked) !== 14) {
+			pickedSum2(value) {
+				if (this.redCanPick) {  // 红方点选的时候，蓝方的时候不清理
+					if (value !== 14) {
 						this.picked = false
 					}
 				}
@@ -130,7 +234,165 @@
 		},
 		
 		methods: {
-			pickCard() {
+			getNextCard() {
+				const {
+					cards,
+				} = this
+				const rv = cards[this.cardIndex]
+				this.cardIndex++
+				return rv
+			},
+			async dropCard(card) {
+				const that = this
+				if (!that.redCanDrop) {
+					return false
+				}
+				if (that.cardCntInRed2 !== 1) {
+					that.du.play();
+					return false
+				}
+				that.redCanDrop = false
+				that.redCanPick = false
+				
+				
+				
+				
+				
+				const dropCard = that.red2[0]
+				const newRed = []
+				for (const cardInRed of that.red) {
+					if (cardInRed.index !== dropCard.index) {
+						newRed.push(cardInRed)
+					}
+				}
+				that.red = newRed
+				that.ground.push(dropCard)
+				that.red2 = []
+				
+				for (let idx=that.red.length; idx<4; idx++) {
+					that.red.push(that.getNextCard())
+					await wait()
+				}
+				
+				// 该电脑出牌了
+				const {
+					blue,
+					ground
+				} = this
+				
+				const cardGroundMap = {}
+				for (const cardInGround of ground) {
+					const groundCardValue = that.getCardValue(cardInGround)
+					cardGroundMap[groundCardValue] = cardGroundMap[groundCardValue] || []
+					cardGroundMap[groundCardValue].push(cardInGround)
+				}
+				
+				const matched = [] // 所有匹配的方案
+				
+				const getHitObj = (value, map) => {
+					const hitArr = map[14 - value]
+					if (hitArr && hitArr.length > 0) {
+						hitArr.sort((c1, c2) => {
+							return  typeValueMap[c2.type] - typeValueMap[c1.type]
+						})
+						return hitArr[0]
+					}
+					return false
+				}
+				
+				for (const cardInBlue of blue) { // 单张匹配
+					const value = that.getCardValue(cardInBlue)
+					const picked = getHitObj(value, cardGroundMap)
+					if (picked) {
+						matched.push({
+							blue: [cardInBlue],
+							picked
+						})
+					}
+				}
+				
+				for (let idx1=0; idx1<blue.length - 1; idx1++) { // 两张加一张的匹配
+					for (let idx2=idx1+1; idx2<blue.length; idx2++) {
+						const b1 = blue[idx1]
+						const b2 = blue[idx2]
+						const value = that.getCardValue(b1) + that.getCardValue(b2)
+						const picked = getHitObj(value, cardGroundMap)
+						if (picked) {
+							matched.push({
+								blue: [b1, b2],
+								picked
+							})
+						}
+					}
+				}
+				
+				if (matched.length > 0) { // 存在匹配的额方案
+					const mappedValue = matched.map(item => {
+						const {
+							blue,
+							picked
+						} = item
+						const value = blue.reduce((acc, cc) => {
+							return acc + typeValueMap[cc.type]
+						}, 0) + typeValueMap[picked.type]
+						return {
+							blue,
+							picked,
+							value
+						};
+					})
+					
+					mappedValue.sort((m1, m2) => {
+						return m2.value - m1.value
+					})
+					
+					console.log(mappedValue, '所有方案')
+					
+					const pickedBlue = mappedValue[0]
+					for (const bb of pickedBlue.blue) {
+						that.blue2.push(bb)
+						that.audio[that.getCardValue(bb)].play()
+						await wait()
+						that.audio[14].play()
+						await wait()
+					}
+					that.audio[that.getCardValue(pickedBlue.picked)].play()
+					that.picked = pickedBlue.picked
+					
+					await wait(5000) // 等待用户观察一下
+					
+					for (const bb of that.blue2) { // 去积分
+						that.bluePicked.push(bb)
+					}
+					that.bluePicked.push(that.picked)// 去积分
+					that.blue = takeOut(that.blue, that.blue2)
+					that.blue2 = []
+				}
+				
+				
+				
+				
+
+				
+				
+				for (let idx=that.blue.length; idx<5; idx++) {
+					that.blue.push(that.getNextCard())
+					await wait();
+				}
+				
+				const toGround = that.blue[Math.floor(Math.random()*that.blue.length)]
+				that.blue2.push(toGround)
+				await wait()
+				that.blue = takeOut(that.blue, [toGround])
+				that.ground = takeOut(that.ground, [that.picked])
+				that.ground.push(toGround)
+				that.picked = false
+				
+				that.redCanDrop = true
+				that.redCanPick = true
+				
+			},
+			async pickCard() {
 				const {
 					picked,
 					red2
@@ -164,6 +426,14 @@
 					this.picked = false
 					this.red2 = []
 					
+					
+					
+					for (let idx=this.red.length; idx<5; idx++) {
+						await wait();
+						this.red.push(this.getNextCard())
+					}
+					
+					this.redCanPick = false
 				}
 			},
 			
@@ -177,7 +447,7 @@
 			
 			cardClicked(card) {
 				const that = this
-				if (!that.redTurn) { // 用户当前不能操作
+				if (!that.redCanPick && !that.redCanDrop) { // 用户当前不能操作
 					return false
 				}
 				const groundIdx = indexOf(card, this.ground)
@@ -191,28 +461,29 @@
 					}
 				} else {
 					const redIdx = indexOf(card, that.red2)
-					if(redIdx >= 0) { // 已经存在
-						const arr = []
-						for (let idx=0; idx<that.red2.length; idx++) {
-							
-							if (idx != redIdx && that.red2[idx]) {
-								arr.push(that.red2[idx])
+					if (that.redCanPick) {
+						if(redIdx >= 0) { // 已经存在
+							const arr = []
+							for (let idx=0; idx<that.red2.length; idx++) {
+								
+								if (idx != redIdx && that.red2[idx]) {
+									arr.push(that.red2[idx])
+								}
 							}
+							that.red2 = arr
+							that.red2Idx = 1
+						} else {
+							const arr = JSON.parse(JSON.stringify(that.red2))
+							arr[that.red2Idx] = card
+							that.red2 = arr
+							that.red2Idx++;
+							that.red2Idx = that.red2Idx % 2
 						}
-						that.red2 = arr
-						that.red2Idx = 1
 					} else {
-						const arr = JSON.parse(JSON.stringify(that.red2))
-						arr[that.red2Idx] = card
-						that.red2 = arr
-						that.red2Idx++;
-						that.red2Idx = that.red2Idx % 2
+						this.red2 = [card]
 					}
+					
 				}
-				
-				
-				
-				
 			},
 			newGame() {
 				const that = this
@@ -226,24 +497,26 @@
 				setTimeout(() => {
 					const fapaile = async () => {
 						
-						for (let idx=0; idx<8; idx+=2) {
+						for (let idx=0; idx<4; idx++) {
 							await wait(fapaiWait)
-							that.red.push(that.cards[idx])
+							that.red.push(that.getNextCard())
 							await wait(fapaiWait)
-							that.blue.push(that.cards[idx + 1])
+							that.blue.push(that.getNextCard())
 						}
 						
-						for (let idx=8; idx<12; idx++) {
+						for (let idx=0; idx<4; idx++) {
 							await wait(fapaiWait)
-							that.ground.push(that.cards[idx])
+							that.ground.push(that.getNextCard())
 						}
-						that.redTurn = true
+						that.redCanPick = true
+						that.redCanDrop = true
 					}
 					fapaile();
 					
 					
 				}, 100)
 			},
+			
 			cardStyle(card, idx) {
 				const that = this
 				const {
@@ -274,6 +547,9 @@
 					top = 10
 					left = leftOffset + blueIdx * cardWidth
 					found = true
+					if (indexOf(card, that.blue2) >=0 ) {
+						top = 60
+					}
 				}
 				
 				const groundIdx = indexOf(card, ground)
@@ -294,6 +570,17 @@
 					cardInGround = true
 				}
 				
+				if(indexOf(card, that.redPicked) >= 0) { // 红方已经捡走得分的牌
+					top = 2100
+					left = 900
+				}
+				
+				if(indexOf(card, that.bluePicked) >= 0) {
+					top = -300
+					left = - 800
+					
+				}
+				
 				
 				const style = {
 					'background-position': found ? `${1770 - card.num * 136}rpx ${1028 - card.type * 205}rpx` : '1960rpx 400rpx',
@@ -302,7 +589,7 @@
 					'z-index': 10001 + idx
 				}
 				
-				if (cardInGround) {
+				if (cardInGround && that.redCanPick) {
 					const {
 						red2
 					} = that
@@ -313,11 +600,18 @@
 							style.filter = 'brightness(.5)'
 						}
 					}
-					
-					if(that.picked) {
-						if (that.picked.index === card.index) {
-							style.transform = 'scale(1.1)'
-						}
+				}
+				
+				if(redIdx >= 0) {
+					if (!that.redCanDrop && !that.redCanPick) {
+						style.filter = 'brightness(.5)'
+					}
+				}
+				
+				if(that.picked) {
+					if (that.picked.index === card.index) {
+						style.transform = 'scale(1.1)'
+						style['z-index'] = 99999999
 					}
 				}
 				
@@ -333,6 +627,7 @@
 		width: 100vw;
 		background: hsl(120, 100%, 30%);
 		z-index: 10000;
+		overflow: hidden;
 	}
 
 	.card {
@@ -372,8 +667,46 @@
 	.control-bar > .button {
 		padding: 20rpx;
 		border: 1rpx solid gray;
-		background: lightgray;
+		--c2: hsl(220, 100%, 66%);
+		--c1: hsl(240, 100%, 66%);
+		background: linear-gradient(var(--c1), var(--c2), var(--c1));
+		color: white;
 		border-radius: 20rpx;
 		margin: 10rpx;
+		min-width: 100rpx;
+		display: flex;
+		justify-content: center;
+		align-items: center;
+	}
+	
+	.button.disabled {
+		--c2: hsl(220, 100%, 76%);
+		--c1: hsl(240, 100%, 76%);
+	}
+	
+	.red-picked-value.show {
+		opacity: 1;
+	}
+	.red-picked-value {
+		position: absolute;
+		top: 600rpx;
+		left: 300rpx;
+		font-size: 150rpx;
+		color: white;
+		font-weight: bolder;
+		text-shadow: 5rpx 5rpx 5rpx gray;
+		z-index: 30000;
+		opacity: 0;
+		transform: all .3s;
+	}
+	
+	.red-picked-value:before {
+		content: '+'
+	}
+	
+	.red-value {
+		position: absolute;
+		bottom: 50rpx;
+		right: 50rpx;
 	}
 </style>
