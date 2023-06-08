@@ -110,6 +110,7 @@ var render = function () {
       s0: s0,
     }
   })
+  var g0 = _vm.cards.length
   if (!_vm._isMounted) {
     _vm.e0 = function ($event) {
       _vm.show.welcome = false
@@ -121,6 +122,7 @@ var render = function () {
     {
       $root: {
         l0: l0,
+        g0: g0,
       },
     }
   )
@@ -170,6 +172,7 @@ var _asyncToGenerator2 = _interopRequireDefault(__webpack_require__(/*! @babel/r
 function _createForOfIteratorHelper(o, allowArrayLike) { var it = typeof Symbol !== "undefined" && o[Symbol.iterator] || o["@@iterator"]; if (!it) { if (Array.isArray(o) || (it = _unsupportedIterableToArray(o)) || allowArrayLike && o && typeof o.length === "number") { if (it) o = it; var i = 0; var F = function F() {}; return { s: F, n: function n() { if (i >= o.length) return { done: true }; return { done: false, value: o[i++] }; }, e: function e(_e) { throw _e; }, f: F }; } throw new TypeError("Invalid attempt to iterate non-iterable instance.\nIn order to be iterable, non-array objects must have a [Symbol.iterator]() method."); } var normalCompletion = true, didErr = false, err; return { s: function s() { it = it.call(o); }, n: function n() { var step = it.next(); normalCompletion = step.done; return step; }, e: function e(_e2) { didErr = true; err = _e2; }, f: function f() { try { if (!normalCompletion && it.return != null) it.return(); } finally { if (didErr) throw err; } } }; }
 function _unsupportedIterableToArray(o, minLen) { if (!o) return; if (typeof o === "string") return _arrayLikeToArray(o, minLen); var n = Object.prototype.toString.call(o).slice(8, -1); if (n === "Object" && o.constructor) n = o.constructor.name; if (n === "Map" || n === "Set") return Array.from(o); if (n === "Arguments" || /^(?:Ui|I)nt(?:8|16|32)(?:Clamped)?Array$/.test(n)) return _arrayLikeToArray(o, minLen); }
 function _arrayLikeToArray(arr, len) { if (len == null || len > arr.length) len = arr.length; for (var i = 0, arr2 = new Array(len); i < len; i++) { arr2[i] = arr[i]; } return arr2; }
+//
 //
 //
 //
@@ -400,6 +403,17 @@ var _default = {
         return acc;
       }, 0);
       return acc;
+    },
+    blueValue: function blueValue() {
+      var that = this;
+      var bluePicked = that.bluePicked;
+      var acc = bluePicked.reduce(function (acc, card) {
+        if (card) {
+          return acc + typeValueMap[card.type];
+        }
+        return acc;
+      }, 0);
+      return acc;
     }
   },
   watch: {
@@ -422,7 +436,7 @@ var _default = {
     dropCard: function dropCard(card) {
       var _this = this;
       return (0, _asyncToGenerator2.default)( /*#__PURE__*/_regenerator.default.mark(function _callee() {
-        var that, dropCard, newRed, _iterator4, _step4, cardInRed, idx, blue, ground, cardGroundMap, _iterator5, _step5, cardInGround, groundCardValue, matched, getHitObj, _iterator6, _step6, cardInBlue, _value, _picked, idx1, idx2, b1, b2, value, picked, mappedValue, pickedBlue, _iterator7, _step7, bb, _iterator8, _step8, _bb, toGround;
+        var that, dropCard, idx, blue, ground, cardGroundMap, _iterator4, _step4, cardInGround, groundCardValue, matched, getHitObj, _iterator5, _step5, cardInBlue, _value, _picked, idx1, idx2, b1, b2, value, picked, mappedValue, pickedBlue, _iterator6, _step6, bb, _iterator7, _step7, _bb, toGround;
         return _regenerator.default.wrap(function _callee$(_context) {
           while (1) {
             switch (_context.prev = _context.next) {
@@ -444,52 +458,44 @@ var _default = {
                 that.redCanDrop = false;
                 that.redCanPick = false;
                 dropCard = that.red2[0];
-                newRed = [];
-                _iterator4 = _createForOfIteratorHelper(that.red);
-                try {
-                  for (_iterator4.s(); !(_step4 = _iterator4.n()).done;) {
-                    cardInRed = _step4.value;
-                    if (cardInRed.index !== dropCard.index) {
-                      newRed.push(cardInRed);
-                    }
-                  }
-                } catch (err) {
-                  _iterator4.e(err);
-                } finally {
-                  _iterator4.f();
+                if (!dropCard) {
+                  dropCard = that.red2[1];
                 }
-                that.red = newRed;
-                that.ground.push(dropCard);
-                that.red2 = [];
+                if (dropCard) {
+                  that.red = takeOut(that.red, [dropCard]);
+                  that.ground.push(dropCard);
+                  that.red2 = [];
+                }
                 idx = that.red.length;
-              case 16:
+              case 12:
                 if (!(idx < 4)) {
-                  _context.next = 23;
+                  _context.next = 19;
                   break;
                 }
+                // 补齐到4张
                 that.red.push(that.getNextCard());
-                _context.next = 20;
-                return wait();
-              case 20:
-                idx++;
                 _context.next = 16;
+                return wait();
+              case 16:
+                idx++;
+                _context.next = 12;
                 break;
-              case 23:
+              case 19:
                 // 该电脑出牌了
                 blue = _this.blue, ground = _this.ground;
-                cardGroundMap = {};
-                _iterator5 = _createForOfIteratorHelper(ground);
+                cardGroundMap = {}; //  根据牌的value 放到 性能优化map中
+                _iterator4 = _createForOfIteratorHelper(ground);
                 try {
-                  for (_iterator5.s(); !(_step5 = _iterator5.n()).done;) {
-                    cardInGround = _step5.value;
+                  for (_iterator4.s(); !(_step4 = _iterator4.n()).done;) {
+                    cardInGround = _step4.value;
                     groundCardValue = that.getCardValue(cardInGround);
                     cardGroundMap[groundCardValue] = cardGroundMap[groundCardValue] || [];
                     cardGroundMap[groundCardValue].push(cardInGround);
                   }
                 } catch (err) {
-                  _iterator5.e(err);
+                  _iterator4.e(err);
                 } finally {
-                  _iterator5.f();
+                  _iterator4.f();
                 }
                 matched = []; // 所有匹配的方案
                 getHitObj = function getHitObj(value, map) {
@@ -502,10 +508,10 @@ var _default = {
                   }
                   return false;
                 };
-                _iterator6 = _createForOfIteratorHelper(blue);
+                _iterator5 = _createForOfIteratorHelper(blue);
                 try {
-                  for (_iterator6.s(); !(_step6 = _iterator6.n()).done;) {
-                    cardInBlue = _step6.value;
+                  for (_iterator5.s(); !(_step5 = _iterator5.n()).done;) {
+                    cardInBlue = _step5.value;
                     // 单张匹配
                     _value = that.getCardValue(cardInBlue);
                     _picked = getHitObj(_value, cardGroundMap);
@@ -517,9 +523,9 @@ var _default = {
                     }
                   }
                 } catch (err) {
-                  _iterator6.e(err);
+                  _iterator5.e(err);
                 } finally {
-                  _iterator6.f();
+                  _iterator5.f();
                 }
                 for (idx1 = 0; idx1 < blue.length - 1; idx1++) {
                   // 两张加一张的匹配
@@ -537,7 +543,7 @@ var _default = {
                   }
                 }
                 if (!(matched.length > 0)) {
-                  _context.next = 68;
+                  _context.next = 65;
                   break;
                 }
                 // 存在匹配的额方案
@@ -557,98 +563,99 @@ var _default = {
                   return m2.value - m1.value;
                 });
                 console.log(mappedValue, '所有方案');
-                pickedBlue = mappedValue[0];
-                _iterator7 = _createForOfIteratorHelper(pickedBlue.blue);
-                _context.prev = 38;
-                _iterator7.s();
-              case 40:
-                if ((_step7 = _iterator7.n()).done) {
-                  _context.next = 51;
+                pickedBlue = mappedValue[0]; //积分最高的那个方案
+                _iterator6 = _createForOfIteratorHelper(pickedBlue.blue);
+                _context.prev = 34;
+                _iterator6.s();
+              case 36:
+                if ((_step6 = _iterator6.n()).done) {
+                  _context.next = 47;
                   break;
                 }
-                bb = _step7.value;
+                bb = _step6.value;
                 that.blue2.push(bb);
                 that.audio[that.getCardValue(bb)].play();
-                _context.next = 46;
+                _context.next = 42;
                 return wait();
-              case 46:
+              case 42:
                 that.audio[14].play();
-                _context.next = 49;
+                _context.next = 45;
                 return wait();
+              case 45:
+                _context.next = 36;
+                break;
+              case 47:
+                _context.next = 52;
+                break;
               case 49:
-                _context.next = 40;
-                break;
-              case 51:
-                _context.next = 56;
-                break;
-              case 53:
-                _context.prev = 53;
-                _context.t0 = _context["catch"](38);
-                _iterator7.e(_context.t0);
-              case 56:
-                _context.prev = 56;
-                _iterator7.f();
-                return _context.finish(56);
-              case 59:
+                _context.prev = 49;
+                _context.t0 = _context["catch"](34);
+                _iterator6.e(_context.t0);
+              case 52:
+                _context.prev = 52;
+                _iterator6.f();
+                return _context.finish(52);
+              case 55:
                 that.audio[that.getCardValue(pickedBlue.picked)].play();
                 that.picked = pickedBlue.picked;
-                _context.next = 63;
-                return wait(5000);
-              case 63:
+                _context.next = 59;
+                return wait(2000);
+              case 59:
                 // 等待用户观察一下
-                _iterator8 = _createForOfIteratorHelper(that.blue2);
+                _iterator7 = _createForOfIteratorHelper(that.blue2);
                 try {
-                  for (_iterator8.s(); !(_step8 = _iterator8.n()).done;) {
-                    _bb = _step8.value;
+                  for (_iterator7.s(); !(_step7 = _iterator7.n()).done;) {
+                    _bb = _step7.value;
                     // 去积分
                     that.bluePicked.push(_bb);
                   }
                 } catch (err) {
-                  _iterator8.e(err);
+                  _iterator7.e(err);
                 } finally {
-                  _iterator8.f();
+                  _iterator7.f();
                 }
                 that.bluePicked.push(that.picked); // 去积分
                 that.blue = takeOut(that.blue, that.blue2);
                 that.blue2 = [];
-              case 68:
+                that.ground = takeOut(that.ground, [that.picked]);
+              case 65:
                 idx = that.blue.length;
-              case 69:
+              case 66:
                 if (!(idx < 5)) {
-                  _context.next = 76;
+                  _context.next = 73;
                   break;
                 }
                 that.blue.push(that.getNextCard());
-                _context.next = 73;
+                _context.next = 70;
                 return wait();
-              case 73:
+              case 70:
                 idx++;
-                _context.next = 69;
+                _context.next = 66;
                 break;
-              case 76:
-                toGround = that.blue[Math.floor(Math.random() * that.blue.length)];
+              case 73:
+                toGround = that.blue[Math.floor(Math.random() * that.blue.length)]; // 随机丢弃一张
                 that.blue2.push(toGround);
-                _context.next = 80;
+                _context.next = 77;
                 return wait();
-              case 80:
+              case 77:
                 that.blue = takeOut(that.blue, [toGround]);
-                that.ground = takeOut(that.ground, [that.picked]);
                 that.ground.push(toGround);
+                that.blue2 = [];
                 that.picked = false;
                 that.redCanDrop = true;
                 that.redCanPick = true;
-              case 86:
+              case 83:
               case "end":
                 return _context.stop();
             }
           }
-        }, _callee, null, [[38, 53, 56, 59]]);
+        }, _callee, null, [[34, 49, 52, 55]]);
       }))();
     },
     pickCard: function pickCard() {
       var _this2 = this;
       return (0, _asyncToGenerator2.default)( /*#__PURE__*/_regenerator.default.mark(function _callee2() {
-        var picked, red2, _iterator9, _step9, card, newRed, _iterator10, _step10, _loop2, newGround, _iterator11, _step11, cardInGround, idx;
+        var picked, red2, _iterator8, _step8, card, newRed, _iterator9, _step9, _loop2, newGround, _iterator10, _step10, cardInGround, idx;
         return _regenerator.default.wrap(function _callee2$(_context2) {
           while (1) {
             switch (_context2.prev = _context2.next) {
@@ -659,24 +666,24 @@ var _default = {
                   break;
                 }
                 _this2.redPicked.push(picked);
-                _iterator9 = _createForOfIteratorHelper(red2);
+                _iterator8 = _createForOfIteratorHelper(red2);
                 try {
-                  for (_iterator9.s(); !(_step9 = _iterator9.n()).done;) {
-                    card = _step9.value;
+                  for (_iterator8.s(); !(_step8 = _iterator8.n()).done;) {
+                    card = _step8.value;
                     if (card) {
                       _this2.redPicked.push(card);
                     }
                   }
                 } catch (err) {
-                  _iterator9.e(err);
+                  _iterator8.e(err);
                 } finally {
-                  _iterator9.f();
+                  _iterator8.f();
                 }
                 newRed = [];
-                _iterator10 = _createForOfIteratorHelper(_this2.red);
+                _iterator9 = _createForOfIteratorHelper(_this2.red);
                 try {
                   _loop2 = function _loop2() {
-                    var cardInRed = _step10.value;
+                    var cardInRed = _step9.value;
                     var found = _this2.red2.find(function (cc) {
                       return cc && cc.index === cardInRed.index;
                     });
@@ -684,28 +691,28 @@ var _default = {
                       newRed.push(cardInRed);
                     }
                   };
-                  for (_iterator10.s(); !(_step10 = _iterator10.n()).done;) {
+                  for (_iterator9.s(); !(_step9 = _iterator9.n()).done;) {
                     _loop2();
                   }
                 } catch (err) {
-                  _iterator10.e(err);
+                  _iterator9.e(err);
                 } finally {
-                  _iterator10.f();
+                  _iterator9.f();
                 }
                 _this2.red = newRed;
                 newGround = [];
-                _iterator11 = _createForOfIteratorHelper(_this2.ground);
+                _iterator10 = _createForOfIteratorHelper(_this2.ground);
                 try {
-                  for (_iterator11.s(); !(_step11 = _iterator11.n()).done;) {
-                    cardInGround = _step11.value;
+                  for (_iterator10.s(); !(_step10 = _iterator10.n()).done;) {
+                    cardInGround = _step10.value;
                     if (cardInGround.index !== picked.index) {
                       newGround.push(cardInGround);
                     }
                   }
                 } catch (err) {
-                  _iterator11.e(err);
+                  _iterator10.e(err);
                 } finally {
-                  _iterator11.f();
+                  _iterator10.f();
                 }
                 _this2.ground = newGround;
                 _this2.picked = false;

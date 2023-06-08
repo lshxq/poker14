@@ -4,7 +4,8 @@
 		
 		<div class="red-picked-value" :class='{show: redPickedValue>0 && redCanPick}'>{{redPickedValue}}</div>
 		<div class="red-value">{{redValue}}</div>
-		
+		<div class="blue-value">{{blueValue}}</div>
+		<div class="card-left">{{cards.length - cardIndex}}</div>
 		<div class="control-bar">
 			<div class="button" @click='pickCard' :class='{disabled: !redCanPick || pickedSum2 !== 14}'>捡牌</div>
 			<div class="button" @click='dropCard' :class='{disabled: !redCanDrop || cardCntInRed2 !== 1}'>弃牌</div>
@@ -220,6 +221,19 @@
 					return acc
 				}, 0)
 				return acc
+			},
+			blueValue() {
+				const that = this
+				const {
+					bluePicked
+				} = that
+				const acc = bluePicked.reduce((acc, card) => {
+					if (card) {
+						return acc + typeValueMap[card.type]
+					}
+					return acc
+				}, 0)
+				return acc
 			}
 		},
 		
@@ -258,18 +272,17 @@
 				
 				
 				
-				const dropCard = that.red2[0]
-				const newRed = []
-				for (const cardInRed of that.red) {
-					if (cardInRed.index !== dropCard.index) {
-						newRed.push(cardInRed)
-					}
+				let dropCard = that.red2[0]
+				if (!dropCard) {
+					dropCard = that.red2[1]
 				}
-				that.red = newRed
-				that.ground.push(dropCard)
-				that.red2 = []
+				if (dropCard) {
+					that.red = takeOut(that.red, [dropCard])
+					that.ground.push(dropCard)
+					that.red2 = []
+				}
 				
-				for (let idx=that.red.length; idx<4; idx++) {
+				for (let idx=that.red.length; idx<4; idx++) { // 补齐到4张
 					that.red.push(that.getNextCard())
 					await wait()
 				}
@@ -280,7 +293,7 @@
 					ground
 				} = this
 				
-				const cardGroundMap = {}
+				const cardGroundMap = {} //  根据牌的value 放到 性能优化map中
 				for (const cardInGround of ground) {
 					const groundCardValue = that.getCardValue(cardInGround)
 					cardGroundMap[groundCardValue] = cardGroundMap[groundCardValue] || []
@@ -348,7 +361,8 @@
 					
 					console.log(mappedValue, '所有方案')
 					
-					const pickedBlue = mappedValue[0]
+					const pickedBlue = mappedValue[0] //积分最高的那个方案
+					
 					for (const bb of pickedBlue.blue) {
 						that.blue2.push(bb)
 						that.audio[that.getCardValue(bb)].play()
@@ -359,7 +373,7 @@
 					that.audio[that.getCardValue(pickedBlue.picked)].play()
 					that.picked = pickedBlue.picked
 					
-					await wait(5000) // 等待用户观察一下
+					await wait(2000) // 等待用户观察一下
 					
 					for (const bb of that.blue2) { // 去积分
 						that.bluePicked.push(bb)
@@ -367,6 +381,7 @@
 					that.bluePicked.push(that.picked)// 去积分
 					that.blue = takeOut(that.blue, that.blue2)
 					that.blue2 = []
+					that.ground = takeOut(that.ground, [that.picked])
 				}
 				
 				
@@ -380,12 +395,13 @@
 					await wait();
 				}
 				
-				const toGround = that.blue[Math.floor(Math.random()*that.blue.length)]
+				const toGround = that.blue[Math.floor(Math.random()*that.blue.length)] // 随机丢弃一张
 				that.blue2.push(toGround)
 				await wait()
 				that.blue = takeOut(that.blue, [toGround])
-				that.ground = takeOut(that.ground, [that.picked])
+				
 				that.ground.push(toGround)
+				that.blue2 = []
 				that.picked = false
 				
 				that.redCanDrop = true
@@ -689,9 +705,9 @@
 	}
 	.red-picked-value {
 		position: absolute;
-		top: 600rpx;
-		left: 300rpx;
-		font-size: 150rpx;
+		bottom: 50rpx;
+		right: 80rpx;
+		font-size: 100rpx;
 		color: white;
 		font-weight: bolder;
 		text-shadow: 5rpx 5rpx 5rpx gray;
@@ -708,5 +724,21 @@
 		position: absolute;
 		bottom: 50rpx;
 		right: 50rpx;
+	}
+	
+		
+	.blue-value {
+		position: absolute;
+		top: 10rpx;
+		right: 50rpx;
+	}
+	
+	.card-left {
+		position: absolute;
+		right: 10rpx;
+		top: 600rpx;
+	}
+	.card-left:before {
+		content: '剩余：'
 	}
 </style>

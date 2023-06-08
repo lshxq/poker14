@@ -59,9 +59,9 @@
 }
 .red-picked-value {
 	position: absolute;
-	top: 600rpx;
-	left: 300rpx;
-	font-size: 150rpx;
+	bottom: 50rpx;
+	right: 80rpx;
+	font-size: 100rpx;
 	color: white;
 	font-weight: bolder;
 	text-shadow: 5rpx 5rpx 5rpx gray;
@@ -77,5 +77,18 @@
 	position: absolute;
 	bottom: 50rpx;
 	right: 50rpx;
+}
+.blue-value {
+	position: absolute;
+	top: 10rpx;
+	right: 50rpx;
+}
+.card-left {
+	position: absolute;
+	right: 10rpx;
+	top: 600rpx;
+}
+.card-left:before {
+	content: '剩余：'
 }
 
